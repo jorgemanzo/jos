@@ -166,7 +166,8 @@ mem_init(void)
 	// array.  'npages' is the number of physical pages in memory.  Use memset
 	// to initialize all fields of each struct PageInfo to 0.
 	// Your code goes here:
-
+	pages = boot_alloc(npages * sizeof(struct PageInfo));
+	memset(pages, 0, npages * sizeof(struct PageInfo));
 
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
@@ -267,13 +268,29 @@ page_init(void)
 	//     page tables and other data structures?
 	//
 	// Change the code to reflect this.
-	// NB: DO NOT actually touch the physical memory corresponding to
+	// NB: DO NOT actually touch the physicdiscal memory corresponding to
 	// free pages!
 	size_t i;
 	for (i = 0; i < npages; i++) {
-		pages[i].pp_ref = 0;
-		pages[i].pp_link = page_free_list;
-		page_free_list = &pages[i];
+
+		int inIOorKernel =  (i >= PGNUM(IOPHYSMEM))  && (i < PGNUM(boot_alloc(0)));
+
+		if(i == 0) {
+			pages[i].pp_ref = 1; //For part 1, marking page 0 in use
+		}
+
+		else if(inIOorKernel){
+			pages[i].pp_ref = 1; //For part 3 and 4, marking memory between
+								 //[IOPHYSMEM, nextfree) in use
+		}
+		
+		else {
+			// Marking everything else / inbetween as available
+			// and adding it into the linked list
+			pages[i].pp_ref = 0;
+			pages[i].pp_link = page_free_list;
+			page_free_list = &pages[i];
+		}
 	}
 }
 
@@ -509,6 +526,8 @@ check_page_free_list(bool only_low_memory)
 	}
 
 	assert(nfree_basemem > 0);
+
+
 	assert(nfree_extmem > 0);
 
 	cprintf("check_page_free_list() succeeded!\n");
