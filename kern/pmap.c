@@ -113,7 +113,7 @@ boot_alloc(uint32_t n)
 		return result;
 	}
 
-	int shouldPanic = (uint32_t) nextfree > 0xFFFFFFFF; // 4GB Max?
+	int shouldPanic = PADDR(nextfree) > PADDR((void *) 0xFFFFFFFF); // 4GB Max?
 
 	if(shouldPanic){
 		panic("boot_alloc: Woopsie, ran out of memory.\n");
@@ -273,7 +273,8 @@ page_init(void)
 	size_t i;
 	for (i = 0; i < npages; i++) {
 
-		int inIOorKernel =  (i >= PGNUM(IOPHYSMEM))  && (i < PGNUM(boot_alloc(0)));
+		// inIOorKernel is 1 if we are in the block from IOPHYSMEM to 
+		int inIOorKernel =  (i >= PGNUM(IOPHYSMEM))  && (i < PGNUM(PADDR(boot_alloc(0))) );
 
 		if(i == 0) {
 			pages[i].pp_ref = 1; //For part 1, marking page 0 in use
