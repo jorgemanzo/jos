@@ -308,10 +308,45 @@ page_init(void)
 //
 // Hint: use page2kva and memset
 struct PageInfo *
+fetch_free_page()
+{
+	// Keep something pointing to the current head
+	struct PageInfo *new_page = page_free_list;
+
+	// if new_page == NULL, that means there is no more space!
+	if(new_page == NULL) {
+		return NULL;
+	}
+
+	// Move the head up to the next one
+	page_free_list = page_free_list->pp_link;
+
+	new_page->pp_link = NULL;
+
+	return new_page;
+}
+
+struct PageInfo *
 page_alloc(int alloc_flags)
 {
 	// Fill this function in
-	return 0;
+	struct PageInfo *free_page = fetch_free_page();
+
+	if(free_page == NULL) {
+		return NULL;
+	}
+
+	// For the current struct PageInfo struct, fill the corresponding
+	// PGSIZE memory space with null chars.
+	if(alloc_flags && ALLOC_ZERO) {
+
+		// Get the virtual address the free_page is representing
+		char  *free_page_virtual_add = page2kva(free_page);
+
+		// Fill its corresponding PGSIZE memory area with zeros.
+		memset(free_page_virtual_add, '\0', PGSIZE);
+	}
+	return free_page;
 }
 
 //
@@ -324,6 +359,13 @@ page_free(struct PageInfo *pp)
 	// Fill this function in
 	// Hint: You may want to panic if pp->pp_ref is nonzero or
 	// pp->pp_link is not NULL.
+	if(pp->pp_link != NULL || pp->pp_ref != 0){
+		panic("Tried to free a page that was still in use!\n");
+	}
+
+	pp->pp_link = page_free_list;
+
+	page_free_list = pp;
 }
 
 //
