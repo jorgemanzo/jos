@@ -501,7 +501,11 @@ struct PageInfo *
 page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 {
 	// Fill this function in
-	return NULL;
+	pte_t* pageTable = pgdir_walk(pgdir, (void *) va, 0);
+	physaddr_t pageTableEntry = pageTable[PTX(va)];
+	struct PageInfo *page = pa2page(pageTableEntry);
+
+	return page;
 }
 
 //
