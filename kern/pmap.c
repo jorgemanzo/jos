@@ -147,9 +147,6 @@ mem_init(void)
 	kern_pgdir = (pde_t *) boot_alloc(PGSIZE);
 	memset(kern_pgdir, 0, PGSIZE);
 
-	// panic("mem_init: Im gay \n");
-
-
 	//////////////////////////////////////////////////////////////////////
 	// Recursively insert PD in itself as a page table, to form
 	// a virtual page table at virtual address UVPT.
@@ -266,7 +263,7 @@ page_init(void)
 	//     Some of it is in use, some is free. Where is the kernel
 	//     in physical memory?  Which pages are already in use for
 	//     page tables and other data structures?
-	//
+	//So 
 	// Change the code to reflect this.
 	// NB: DO NOT actually touch the physicdiscal memory corresponding to
 	// free pages!
@@ -338,7 +335,7 @@ page_alloc(int alloc_flags)
 
 	// For the current struct PageInfo struct, fill the corresponding
 	// PGSIZE memory space with null chars.
-	if(alloc_flags && ALLOC_ZERO) {
+	if(alloc_flags & ALLOC_ZERO) {
 
 		// Get the virtual address the free_page is representing
 		char  *free_page_virtual_add = page2kva(free_page);
@@ -404,8 +401,36 @@ page_decref(struct PageInfo* pp)
 pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
-	// Fill this function in
-	return NULL;
+	// Get the page directory index and page table index
+	int pageDirectoryIndex = PDX(va);
+	int pageTableIndex = PTX(va);
+
+	// If the page directory entry doesnt point to NULL
+	// and we can create it,
+	// we need to make a new page, and point the entry to it
+	int isPageTableMissing = !(pgdir[pageDirectoryIndex] & PTE_P);
+
+	if(isPageTableMissing) {
+
+		// Can we create the missing page?
+		int cannotCreate = (create == 0);
+		if(cannotCreate) {
+			return NULL;
+		}
+
+
+		struct PageInfo * newPage = page_alloc(ALLOC_ZERO);
+		if(newPage == NULL){
+			panic("pgdir_walk: Unable to allocate new page?");
+		}
+
+		// Point the page directory entry to the newly allocated page
+		pgdir[pageDirectoryIndex] = page2pa(newPage) | PTE_P | PTE_W | PTE_U;
+	}
+
+	// fetch the address of the page table from the page directory entry
+	uintptr_t *pageTable = KADDR(PTE_ADDR(pgdir[pageDirectoryIndex]));
+	return (pte_t*) pageTable[pageTableIndex] ;
 }
 
 //
@@ -422,7 +447,11 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 static void
 boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
+	pte_t pageTable = pgdir_walk(pgdir, va, 1);
 	// Fill this function in
+	for(int i = 0; i < size; i = i + PGSIZE) {
+		pageTable[PTX(va + i)] = (pa + i) | perm | PTE_P;
+	}
 }
 
 //
