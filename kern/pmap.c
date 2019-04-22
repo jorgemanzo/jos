@@ -447,7 +447,7 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 static void
 boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
-	pte_t pageTable = pgdir_walk(pgdir, va, 1);
+	pte_t* pageTable = pgdir_walk(pgdir, (void *) va, 1);
 	// Fill this function in
 	for(int i = 0; i < size; i = i + PGSIZE) {
 		pageTable[PTX(va + i)] = (pa + i) | perm | PTE_P;
