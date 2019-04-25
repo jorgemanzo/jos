@@ -528,9 +528,6 @@ int
 page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 {
 
-	// Call pgdir_walk() without create, so we can see if it exists
-	pte_t* pte_p = NULL;
-
 	// Does something already live there?
 	if(doesPageExistAt(pgdir, va)) {
 
@@ -541,27 +538,29 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 
 
 		// Make the page there. If it returns null, we ran out of memory
-		pte_t* newPageTable = pgdir_walk(pgdir, va, 1);
+		pte_t* newPageTableEntry = pgdir_walk(pgdir, va, 1);
 
 
 
-		if(newPageTable == NULL) {
+		if(newPageTableEntry == NULL) {
 			return (-E_NO_MEM);
 		}
 
-		pte_p = (pte_t*) newPageTable[PTX(va)];
+		(*newPageTableEntry) = page2pa(pp) | perm | PTE_P;
+		pp->pp_ref++;
+		tlb_invalidate(pgdir, va);
+
+		return 0;
 	}
 
-
-	pte_p = pgdir_walk(pgdir, va, 1);
+	// Call pgdir_walk() without create, so we can see if it exists
+	pte_t* pte_p = pgdir_walk(pgdir, va, 1);
 
 	if(pte_p == NULL) {
 		return (-E_NO_MEM);
 	}
 	*pte_p = page2pa(pp) | perm | PTE_P;
 	pp->pp_ref++;
-
-	tlb_invalidate(pgdir, va);
 
 	return 0;
 }
