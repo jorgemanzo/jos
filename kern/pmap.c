@@ -308,21 +308,7 @@ page_init(void)
 struct PageInfo *
 fetch_free_page()
 {
-	// if page_free_list == NULL, that means there is no more space!
-	if(page_free_list == NULL) {
-		return NULL;
-	}
 
-
-	// Keep something pointing to the current head
-	struct PageInfo *new_page = page_free_list;
-
-	// Move the head up to the next one
-	page_free_list = new_page->pp_link;
-
-	new_page->pp_link = NULL;
-
-	return new_page;
 }
 
 int
@@ -339,25 +325,7 @@ getSizeOfRemainingPages() {
 struct PageInfo *
 page_alloc(int alloc_flags)
 {
-	// Fill this function in
-	cprintf("\t=>page_alloc(): fetching page\n");
-	struct PageInfo *free_page = fetch_free_page();
 
-	if(free_page == NULL) {
-		cprintf("\t=>page_alloc(): Unable to fetch page\n");
-		return NULL;
-	}
-
-	cprintf("\t=>page_alloc(): fetch successful\n");
-	// For the current struct PageInfo struct, fill the corresponding
-	// PGSIZE memory space with null chars.
-	if(alloc_flags & ALLOC_ZERO) {
-		cprintf("\t=>page_alloc(): stuffing with zeros\n");
-		// Fill its corresponding PGSIZE memory area with zeros.
-		memset(page2kva(free_page), '\0', PGSIZE);
-	}
-
-	return free_page;
 }
 
 //
@@ -386,12 +354,9 @@ page_free(struct PageInfo *pp)
 void
 page_decref(struct PageInfo* pp)
 {
-	cprintf("===! page_decref(): pp ref of the page after subtracting one is: %d\n", pp->pp_ref - 1);
 	if (--pp->pp_ref == 0)
-		cprintf("===! page_decref(): calling page_free()...\n");
 
 		page_free(pp);
-		cprintf("===! page_decref(): done!\n");
 
 }
 
@@ -420,54 +385,6 @@ page_decref(struct PageInfo* pp)
 pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
-
-	pte_t* pageTable;
-	pde_t* pde = &pgdir[PDX(va)];
-
-	if((*pde) & PTE_P) {
-
-		cprintf("pgdirwalk(): PTE present\n");
-		pageTable = KADDR(PTE_ADDR(*pde));
-
-		// fetch the specific entry from the page table
-		return &pageTable[PTX(va)] ;
-
-
-	} else {
-
-		cprintf("pgdirwalk(): PTE not present\n");
-
-		// Can we create the missing page?
-		if(create == 0) {
-			cprintf("pgdirwalk(): cant create\n");
-
-			return NULL;
-
-		} else {
-
-			cprintf("pgdirwalk(): allocating... \n");
-
-			struct PageInfo * newPage = page_alloc(ALLOC_ZERO);
-
-			if(newPage == NULL){
-				cprintf("pgdirwalk(): failed \n");
-
-				return NULL;
-			}
-
-			cprintf("pgdirwalk(): Done! \n");
-
-			newPage->pp_ref += 1;
-
-			// Point the page directory entry to the newly allocated page
-			(*pde) = page2pa(newPage) | PTE_P | PTE_U | PTE_W;
-
-			pageTable= (pte_t*) KADDR(PTE_ADDR(*pde));
-
-			return &(pageTable[PTX(va)]);
-		}
-
-	}
 
 }
 
@@ -541,64 +458,9 @@ isPTEpresent(pde_t *pgdir, void *va) {
 // represent the same physical memory addresses,
 // update the currently mapped physical page's pp_ref to equal
 // the incomming pp->pp_ref... 
-int cornerCaseCheck(struct PageInfo *pp, pde_t *pgdir, void *va) {
-	pte_t* pte_p = pgdir_walk(pgdir, va, 0);
-
-	if(page2pa(pp) == PTE_ADDR(*pte_p)) {
-		struct PageInfo* page = pa2page(PTE_ADDR(*pte_p));
-		page->pp_ref = pp->pp_ref;
-		return 1;
-	}
-	return 0;
-}
-
 int
 page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 {
-
-	// Does something already live there?
-	if(isPTEpresent(pgdir, va)) {
-
-		if(cornerCaseCheck(pp, pgdir, va)){
-			return 0;
-		}
-
-		cprintf("\tpage_insert(): page exists\n");
-		//Delete it
-		page_remove(pgdir, va);
-
-		cprintf("\tpage_insert(): available pages after remove: %d\n", getSizeOfRemainingPages());
-
-		// Make the page there. If it returns null, we ran out of memory
-		pte_t* newPageTableEntry = pgdir_walk(pgdir, va, 1);
-
-		cprintf("\tpage_insert(): available pages after pgdirwalk(): %d\n", getSizeOfRemainingPages());
-
-
-		if(newPageTableEntry == NULL) {
-			return (-E_NO_MEM);
-		}
-
-		(*newPageTableEntry) = page2pa(pp) | perm | PTE_P;
-		pp->pp_ref++;
-		tlb_invalidate(pgdir, va);
-
-		return 0;
-	}
-
-	cprintf("\tpage_insert(): page doesnt exist\n");
-
-	// Call pgdir_walk() without create, so we can see if it exists
-	pte_t* pte_p = pgdir_walk(pgdir, va, 1);
-
-	if(pte_p == NULL) {
-		cprintf("\tpage_insert(): pgdir_walk() returned NULL\n");
-		return (-E_NO_MEM);
-	}
-
-	cprintf("\tpage_insert(): created\n");
-	(*pte_p) = page2pa(pp) | perm | PTE_P;
-	pp->pp_ref = pp->pp_ref + 1;
 
 	return 0;
 }
@@ -617,30 +479,7 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 struct PageInfo *
 page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 {
-	// Fill this function in
-	cprintf("###>page_lookup(): checking for page existance\n");
-
-	if(! isPTEpresent(pgdir, va)) {
-		cprintf("###>page_lookup(): no page found\n");
-		return NULL;
-	}
-
-	// Get page table entry
-
-	cprintf("###>page_lookup(): calling pgdir_walk()...\n");
-
-	pte_t* pageTableEntry = pgdir_walk(pgdir, va, 0);
-
-
-	if(pte_store != NULL) {
-		cprintf("###>page_lookup(): pte_store is not null, storing PTE in it...\n");
-
-		*pte_store = pageTableEntry;
-	}
-
-	cprintf("###>page_lookup(): converting page table entry to page struct and returning...\n");
-
-	return pa2page(PTE_ADDR(*pageTableEntry));
+	
 }
 
 
@@ -674,31 +513,6 @@ isPDEpresent(pde_t *pgdir, void *va){
 void
 page_remove(pde_t *pgdir, void *va)
 {
-	cprintf("--->page_remove(): checking for page existance\n");
-	if(!isPTEpresent(pgdir, va)){
-		cprintf("--->page_remove(): No page found\n");
-		return;
-	} else {
-		cprintf("--->page_remove(): page found\n");
-
-		// Setup a pte_t
-		pte_t* pte_p;
-
-		cprintf("--->page_remove(): looking up PageInfo Struct at va..\n");
-		struct PageInfo* maybePage = page_lookup(pgdir, va, &pte_p);
-
-		cprintf("--->page_remove(): calling page_decref()...\n");
-		page_decref(maybePage);
-
-
-		*pte_p = 0;
-
-
-		cprintf("--->page_remove(): finishing..\n");
-
-		// bleh
-		tlb_invalidate(pgdir, va);	
-	}
 
 }
 
@@ -994,12 +808,19 @@ check_page(void)
 	ptep = (pte_t *) KADDR(PTE_ADDR(kern_pgdir[PDX(PGSIZE)]));
 	assert(pgdir_walk(kern_pgdir, (void*)PGSIZE, 0) == ptep+PTX(PGSIZE));
 
+	cprintf("chunky boi\n");
 	// should be able to change permissions too.
 	assert(page_insert(kern_pgdir, pp2, (void*) PGSIZE, PTE_W|PTE_U) == 0);
+	cprintf("aaa1\n");
+
 	assert(check_va2pa(kern_pgdir, PGSIZE) == page2pa(pp2));
 	assert(pp2->pp_ref == 1);
+	cprintf("aaa2\n");
+
 	assert(*pgdir_walk(kern_pgdir, (void*) PGSIZE, 0) & PTE_U);
 	assert(kern_pgdir[0] & PTE_U);
+	cprintf("end chunky boi\n");
+
 
 	// should be able to remap with fewer permissions
 	assert(page_insert(kern_pgdir, pp2, (void*) PGSIZE, PTE_W) == 0);
