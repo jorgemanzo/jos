@@ -310,8 +310,41 @@ page_init(void)
 struct PageInfo *
 fetch_free_page()
 {
+	// if page_free_list == NULL, that means there is no more space!
+	if(page_free_list == NULL) {
+		return NULL;
+	}
+
+
+	// Keep something pointing to the current head
+	struct PageInfo *new_page = page_free_list;
+
+	// Move the head up to the next one
+	page_free_list = new_page->pp_link;
+
+	new_page->pp_link = NULL;
+
+	return new_page;
+}
+
+struct PageInfo *
+page_alloc(int alloc_flags)
+{
+	struct PageInfo *free_page = fetch_free_page();
+
+	if(free_page == NULL) {
+		return NULL;
+	}
+
+	if(alloc_flags & ALLOC_ZERO) {
+		// Fill its corresponding PGSIZE memory area with zeros.
+		memset(page2kva(free_page), '\0', sizeof(struct PageInfo));
+	}
+
+
 	return NULL;
 }
+
 
 int
 getSizeOfRemainingPages() {
@@ -324,11 +357,6 @@ getSizeOfRemainingPages() {
 	return free_pps;
 }
 
-struct PageInfo *
-page_alloc(int alloc_flags)
-{
-	return NULL;
-}
 
 //
 // Return a page to the free list.
@@ -384,11 +412,47 @@ page_decref(struct PageInfo* pp)
 // Hint 3: look at inc/mmu.h for useful macros that manipulate page
 // table and page directory entries.
 //
+
+// Returns 1 if valid, 0 if invalid.
+int
+validPDE(pde_t *pgdir, const void *va) {
+	// Get PDE from VA in pgdir
+	pde_t* pde = &pgdir[PDX(va)];
+
+	// Verify that the PDE has the present bit
+	if((*pde) & PTE_P){
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
+// Go fetch a PDE from pgdir at va
+pde_t*
+extractPDE(pde_t *pgdir, const void *va) {
+	return &pgdir[PDX(va)];
+}
+
+// Go fetch a PTE from pgdir at va
+pte_t *
+extractPTE(pde_t *pgdir, const void *va) {
+	pde_t* pde = extractPDE(pgdir, va);
+	pde_t* page_table= (pde_t*) KADDR(PTE_ADDR(*pde));
+	return &page_table[PTX(va)];
+}
+
 pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
+	if(validPDE(pgdir, va)){
+		// Extract PTE
+		return extractPTE(pgdir, va);
+	} else {
+		//meh
+	}
 	return NULL;
 }
+
 
 
 
