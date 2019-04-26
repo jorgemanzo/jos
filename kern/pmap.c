@@ -338,11 +338,11 @@ page_alloc(int alloc_flags)
 
 	if(alloc_flags & ALLOC_ZERO) {
 		// Fill its corresponding PGSIZE memory area with zeros.
-		memset(page2kva(free_page), '\0', sizeof(struct PageInfo));
+		memset(page2kva(free_page), '\0', PGSIZE);
 	}
 
 
-	return NULL;
+	return free_page;
 }
 
 
