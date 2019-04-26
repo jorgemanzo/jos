@@ -430,6 +430,7 @@ validPDE(pde_t *pgdir, const void *va) {
 // Go fetch a PDE from pgdir at va
 pde_t*
 extractPDE(pde_t *pgdir, const void *va) {
+
 	return &pgdir[PDX(va)];
 }
 
@@ -441,6 +442,20 @@ extractPTE(pde_t *pgdir, const void *va) {
 	return &page_table[PTX(va)];
 }
 
+// Setup a Physical PageInfo struct
+struct PageInfo*
+setupPage(int alloc_flags) {
+	struct PageInfo* pp_page_table= page_alloc(alloc_flags);
+	pp_page_table->pp_ref+= 1;
+	return pp_page_table;
+}
+
+pde_t
+createPDE(struct PageInfo* pp_page_table) {
+
+	return (page2pa(pp_page_table) | PTE_P | PTE_U | PTE_W);
+}
+
 pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
@@ -448,9 +463,25 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 		// Extract PTE
 		return extractPTE(pgdir, va);
 	} else {
-		//meh
+
+		// No Page table for PDE
+		if(create == 0) {
+
+			return NULL;
+		}
+
+		// Make a page table
+		struct PageInfo* pp_page_table = setupPage(ALLOC_ZERO);
+
+		// Get the PDE in pgdir at va
+		pde_t* p_pde = extractPDE(pgdir, va);
+
+		// Modify the page directory entry to be the physical page addr + perms
+		(*p_pde) = createPDE(pp_page_table);
+
+		return extractPTE(pgdir, va);
+
 	}
-	return NULL;
 }
 
 
