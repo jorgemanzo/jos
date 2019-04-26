@@ -305,10 +305,12 @@ page_init(void)
 // Returns NULL if out of free memory.
 //
 // Hint: use page2kva and memset
+
+
 struct PageInfo *
 fetch_free_page()
 {
-
+	return NULL;
 }
 
 int
@@ -325,7 +327,7 @@ getSizeOfRemainingPages() {
 struct PageInfo *
 page_alloc(int alloc_flags)
 {
-
+	return NULL;
 }
 
 //
@@ -385,8 +387,10 @@ page_decref(struct PageInfo* pp)
 pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
-
+	return NULL;
 }
+
+
 
 //
 // Map [va, va+size) of virtual address space to physical [pa, pa+size)
@@ -479,7 +483,7 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 struct PageInfo *
 page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 {
-	
+	return NULL;
 }
 
 
@@ -513,7 +517,7 @@ isPDEpresent(pde_t *pgdir, void *va){
 void
 page_remove(pde_t *pgdir, void *va)
 {
-
+	return;
 }
 
 //
