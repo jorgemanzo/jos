@@ -384,9 +384,10 @@ page_free(struct PageInfo *pp)
 void
 page_decref(struct PageInfo* pp)
 {
-	if (--pp->pp_ref == 0)
+	if (--pp->pp_ref == 0){
 
 		page_free(pp);
+	}
 
 }
 
@@ -415,7 +416,8 @@ page_decref(struct PageInfo* pp)
 
 // Returns 1 if valid, 0 if invalid.
 int
-validPDE(pde_t *pgdir, const void *va) {
+validPDE(pde_t *pgdir, const void *va) 
+{
 	// Get PDE from VA in pgdir
 	pde_t* pde = &pgdir[PDX(va)];
 
@@ -429,14 +431,16 @@ validPDE(pde_t *pgdir, const void *va) {
 
 // Go fetch a PDE from pgdir at va
 pde_t*
-extractPDE(pde_t *pgdir, const void *va) {
+extractPDE(pde_t *pgdir, const void *va) 
+{
 
 	return &pgdir[PDX(va)];
 }
 
 // Go fetch a PTE from pgdir at va
 pte_t *
-extractPTE(pde_t *pgdir, const void *va) {
+extractPTE(pde_t *pgdir, const void *va) 
+{
 	pde_t* pde = extractPDE(pgdir, va);
 	pde_t* page_table= (pde_t*) KADDR(PTE_ADDR(*pde));
 	return &page_table[PTX(va)];
@@ -444,7 +448,8 @@ extractPTE(pde_t *pgdir, const void *va) {
 
 // Setup a Physical PageInfo struct. Returns null if allocation fails
 struct PageInfo*
-setupPage(int alloc_flags) {
+setupPage(int alloc_flags)
+{
 	struct PageInfo* pp_page_table= page_alloc(alloc_flags);
 
 	if(pp_page_table == NULL) {
@@ -456,7 +461,8 @@ setupPage(int alloc_flags) {
 }
 
 pde_t
-createPDE(struct PageInfo* pp_page_table) {
+createPDE(struct PageInfo* pp_page_table)
+{
 
 	return (page2pa(pp_page_table) | PTE_P | PTE_U | PTE_W);
 }
@@ -480,6 +486,7 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 
 		// Check if allocation worked
 		if(pp_page_table == NULL) {
+
 			return NULL;
 		}
 
@@ -493,9 +500,6 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 
 	}
 }
-
-
-
 
 //
 // Map [va, va+size) of virtual address space to physical [pa, pa+size)
@@ -588,7 +592,14 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 struct PageInfo *
 page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 {
-	return NULL;
+
+	pte_t*p_pte= pgdir_walk(pgdir, va, 0);
+
+	if(p_pte == NULL) { return NULL; }
+
+	if (pte_store!= NULL) { *pte_store= p_pte; }
+
+	return pa2page(PTE_ADDR(*p_pte));
 }
 
 
@@ -622,7 +633,16 @@ isPDEpresent(pde_t *pgdir, void *va){
 void
 page_remove(pde_t *pgdir, void *va)
 {
-	return;
+	pte_t* p_pte;
+	struct PageInfo *pp = page_lookup(pgdir, va, &p_pte);
+
+	if(pp == NULL){ return; }
+
+	*p_pte= 0;
+
+	page_decref(pp);
+
+	tlb_invalidate(pgdir, va);
 }
 
 //
