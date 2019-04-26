@@ -442,10 +442,15 @@ extractPTE(pde_t *pgdir, const void *va) {
 	return &page_table[PTX(va)];
 }
 
-// Setup a Physical PageInfo struct
+// Setup a Physical PageInfo struct. Returns null if allocation fails
 struct PageInfo*
 setupPage(int alloc_flags) {
 	struct PageInfo* pp_page_table= page_alloc(alloc_flags);
+
+	if(pp_page_table == NULL) {
+		return NULL;
+	}
+
 	pp_page_table->pp_ref+= 1;
 	return pp_page_table;
 }
@@ -472,6 +477,11 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 
 		// Make a page table
 		struct PageInfo* pp_page_table = setupPage(ALLOC_ZERO);
+
+		// Check if allocation worked
+		if(pp_page_table == NULL) {
+			return NULL;
+		}
 
 		// Get the PDE in pgdir at va
 		pde_t* p_pde = extractPDE(pgdir, va);
