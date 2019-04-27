@@ -69,6 +69,14 @@ static physaddr_t check_va2pa(pde_t *pgdir, uintptr_t va);
 static void check_page(void);
 static void check_page_installed_pgdir(void);
 
+
+int validPDE(pde_t *pgdir, const void *va);
+int validPTE(pde_t *pgdir, const void *va);
+pde_t* extractPDE(pde_t *pgdir, const void *va);
+pte_t* extractPTE(pde_t *pgdir, const void *va);
+pde_t createPDE(struct PageInfo* pp_page_table);
+pte_t createPTE(struct PageInfo* pp_page_table, int perm);
+struct PageInfo* setupPage(int alloc_flags);
 // This simple physical memory allocator is used only while JOS is setting
 // up its virtual memory system.  page_alloc() is the real allocator.
 //
@@ -188,10 +196,10 @@ mem_init(void)
 	//      (ie. perm = PTE_U | PTE_P)
 	//    - pages itself -- kernel RW, user NONE
 	// Your code goes here:
-    size_t pages_size = ROUNDUP(sizeof(struct PageInfo) * npages, PGSIZE);    
+    size_t pages_size = ROUNDUP(sizeof(struct PageInfo) * npages, PGSIZE);
     boot_map_region(kern_pgdir, UPAGES, pages_size, PADDR(pages), PTE_U | PTE_P);
     boot_map_region(kern_pgdir, (uintptr_t)pages, pages_size, PADDR(pages), PTE_W | PTE_P); 
-
+ 
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
 	// stack.  The kernel stack grows down from virtual address KSTACKTOP.
@@ -214,6 +222,7 @@ mem_init(void)
 	// we just set up the mapping anyway.
 	// Permissions: kernel RW, user NONE
 	// Your code goes here:
+    // boot_map_region(kern_pgdir, KERNBASE, 0xFFFFFFFF, 0, PTE_W | PTE_P);
 
 	// Check that the initial page directory has been set up correctly.
 	check_kern_pgdir();
@@ -542,10 +551,10 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 static void
 boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
-	
+	cprintf("bmr: va = %#x\n", va);
+	cprintf("bmr: size = %d\n", size);
 	// Fill this function in
 	for(int i = 0; i < size; i = i + PGSIZE) {
-
 		// Get the page table entry for this 'chunk'
 		pte_t* pageTableEntry = pgdir_walk(pgdir, (void*) (va + i), 1);
 
@@ -908,9 +917,9 @@ check_kern_pgdir(void)
 		assert(check_va2pa(pgdir, UPAGES + i) == PADDR(pages) + i);
 
 	// check phys mem
-	for (i = 0; i < npages * PGSIZE; i += PGSIZE)
+	for (i = 0; i < npages * PGSIZE; i += PGSIZE){
 		assert(check_va2pa(pgdir, KERNBASE + i) == i);
-
+	}
 	// check kernel stack
 	for (i = 0; i < KSTKSIZE; i += PGSIZE)
 		assert(check_va2pa(pgdir, KSTACKTOP - KSTKSIZE + i) == PADDR(bootstack) + i);
