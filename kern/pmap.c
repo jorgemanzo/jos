@@ -188,6 +188,9 @@ mem_init(void)
 	//      (ie. perm = PTE_U | PTE_P)
 	//    - pages itself -- kernel RW, user NONE
 	// Your code goes here:
+    size_t pages_size = ROUNDUP(sizeof(struct PageInfo) * npages, PGSIZE);    
+    boot_map_region(kern_pgdir, UPAGES, pages_size, PADDR(pages), PTE_U | PTE_P);
+    boot_map_region(kern_pgdir, (uintptr_t)pages, pages_size, PADDR(pages), PTE_W | PTE_P); 
 
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
@@ -200,6 +203,8 @@ mem_init(void)
 	//       overwrite memory.  Known as a "guard page".
 	//     Permissions: kernel RW, user NONE
 	// Your code goes here:
+    boot_map_region(kern_pgdir, KSTACKTOP-KSTKSIZE, KSTKSIZE,(physaddr_t)PADDR(bootstack), PTE_W | PTE_P);
+
 
 	//////////////////////////////////////////////////////////////////////
 	// Map all of physical memory at KERNBASE.
@@ -537,14 +542,15 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 static void
 boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
+	
 	// Fill this function in
 	for(int i = 0; i < size; i = i + PGSIZE) {
 
 		// Get the page table entry for this 'chunk'
-		pte_t* pageTableEntry = pgdir_walk(pgdir, (void*) va + i, 1);
+		pte_t* pageTableEntry = pgdir_walk(pgdir, (void*) (va + i), 1);
 
 		// Set the corresponding physical page address + perms
-		(*pageTableEntry) = (pa + i) | perm | PTE_P;
+		(*pageTableEntry) = (pa + i) | perm;
 
 	}
 }
@@ -586,9 +592,10 @@ int
 isSamePages(struct PageInfo *pp, pde_t *pgdir, const void *va, int perm) {
 	pte_t* pte_p = pgdir_walk(pgdir, va, 0);
 
-	int updatedPerms = 0;
 	if(page2pa(pp) == PTE_ADDR(*pte_p)) {
 
+		// Set permissions to whatever perm is.
+		int updatedPerms = 0;
 		if(perm & PTE_U) {
 			//granted PTEU
 			updatedPerms = updatedPerms | PTE_U;
@@ -639,7 +646,7 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 	}
 
 	// Sanity check
-	assert(*(extractPTE(pgdir, va)) == *(pgdir_walk(pgdir, va, 1)));
+	// assert(*(extractPTE(pgdir, va)) == *(pgdir_walk(pgdir, va, 1)));
 
 
 	// Fetch the PTE
@@ -649,7 +656,7 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 	(*p_pte) = createPTE(pp, perm);
 
 	// Sanity check
-	assert(validPTE(pgdir, va));
+	// assert(validPTE(pgdir, va));
 
 	return 0;
 }
@@ -899,7 +906,6 @@ check_kern_pgdir(void)
 	n = ROUNDUP(npages*sizeof(struct PageInfo), PGSIZE);
 	for (i = 0; i < n; i += PGSIZE)
 		assert(check_va2pa(pgdir, UPAGES + i) == PADDR(pages) + i);
-
 
 	// check phys mem
 	for (i = 0; i < npages * PGSIZE; i += PGSIZE)
