@@ -429,6 +429,7 @@ validPDE(pde_t *pgdir, const void *va)
 	}
 }
 
+
 // Go fetch a PDE from pgdir at va
 pde_t*
 extractPDE(pde_t *pgdir, const void *va) 
@@ -446,6 +447,24 @@ extractPTE(pde_t *pgdir, const void *va)
 	return &page_table[PTX(va)];
 }
 
+// Returns 1 if valid, 0 if invalid.
+int
+validPTE(pde_t *pgdir, const void *va) 
+{
+	// Is the PDE valid?
+	if(validPDE(pgdir, va)) {
+
+		// Extract PTE
+		pte_t *pte_p = extractPTE(pgdir, va);
+
+		// Is PTE valid?
+		if((*pte_p) &  PTE_P) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
 // Setup a Physical PageInfo struct. Returns null if allocation fails
 struct PageInfo*
 setupPage(int alloc_flags)
@@ -456,7 +475,7 @@ setupPage(int alloc_flags)
 		return NULL;
 	}
 
-	pp_page_table->pp_ref+= 1;
+	pp_page_table->pp_ref = (pp_page_table->pp_ref) + 1;
 	return pp_page_table;
 }
 
@@ -496,6 +515,9 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 		// Modify the page directory entry to be the physical page addr + perms
 		(*p_pde) = createPDE(pp_page_table);
 
+		// Sanity check
+		assert(!validPTE(pgdir, va));
+
 		return extractPTE(pgdir, va);
 
 	}
@@ -528,19 +550,12 @@ boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm
 }
 
 
-// Returns 0 if no pages is at va, returns 1 if page is found
-int
-isPTEpresent(pde_t *pgdir, void *va) {
-	pte_t* pte_p = pgdir_walk(pgdir, va, 0);
-	if(pte_p == NULL ) {
-		return 0;
-	}
-	if((*pte_p) & PTE_P) {
-		return 1;
-	}
-	return 0;
-}
+pte_t
+createPTE(struct PageInfo* pp_page_table, int perm)
+{
 
+	return (page2pa(pp_page_table) | perm | PTE_P);
+}
 //
 // Map the physical page 'pp' at virtual address 'va'.
 // The permissions (the low 12 bits) of the page table entry
@@ -567,13 +582,74 @@ isPTEpresent(pde_t *pgdir, void *va) {
 // and page2pa.
 //
 
+int
+isSamePages(struct PageInfo *pp, pde_t *pgdir, const void *va, int perm) {
+	pte_t* pte_p = pgdir_walk(pgdir, va, 0);
+
+	int updatedPerms = 0;
+	if(page2pa(pp) == PTE_ADDR(*pte_p)) {
+
+		if(perm & PTE_U) {
+			//granted PTEU
+			updatedPerms = updatedPerms | PTE_U;
+		}
+
+		if(perm & PTE_W) {
+			//granted PTE_W
+			updatedPerms = updatedPerms | PTE_W;
+		}
+
+		if((perm & PTE_U) || (perm & PTE_W)) {
+			(*pte_p) = PTE_ADDR(*pte_p) | updatedPerms | PTE_P;
+		}
+		return 1;
+	}
+	return 0;
+}
+
 // The corner case is, if the two Physical Page info structs
-// represent the same physical memory addresses,
-// update the currently mapped physical page's pp_ref to equal
-// the incomming pp->pp_ref... 
+// are actually the same?
 int
 page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 {
+	pte_t *p_pte;
+
+	// - If there is already a page mapped at 'va',
+	//  it should be page_remove()d.
+	if(validPTE(pgdir, va)) {
+
+		if(isSamePages(pp, pgdir, va, perm)) {
+			return 0;
+		}
+
+		page_remove(pgdir, va);
+	}
+
+	//  - If necessary, on demand, a page table should be allocated and inserted
+	//    into 'pgdir'.
+	if(!validPDE(pgdir, va)) {
+
+		// try to create the missing PT
+		p_pte = pgdir_walk(pgdir, va, 1);
+
+		// Check if ran out of memory
+		if(p_pte == NULL) {
+			return (-E_NO_MEM);
+		}
+	}
+
+	// Sanity check
+	assert(*(extractPTE(pgdir, va)) == *(pgdir_walk(pgdir, va, 1)));
+
+
+	// Fetch the PTE
+	p_pte = extractPTE(pgdir, va);
+	//  - pp->pp_ref should be incremented if the insertion succeeds.
+	pp->pp_ref = pp->pp_ref + 1;
+	(*p_pte) = createPTE(pp, perm);
+
+	// Sanity check
+	assert(validPTE(pgdir, va));
 
 	return 0;
 }
@@ -937,18 +1013,17 @@ check_page(void)
 	ptep = (pte_t *) KADDR(PTE_ADDR(kern_pgdir[PDX(PGSIZE)]));
 	assert(pgdir_walk(kern_pgdir, (void*)PGSIZE, 0) == ptep+PTX(PGSIZE));
 
-	cprintf("chunky boi\n");
+
 	// should be able to change permissions too.
 	assert(page_insert(kern_pgdir, pp2, (void*) PGSIZE, PTE_W|PTE_U) == 0);
-	cprintf("aaa1\n");
 
 	assert(check_va2pa(kern_pgdir, PGSIZE) == page2pa(pp2));
 	assert(pp2->pp_ref == 1);
-	cprintf("aaa2\n");
+
 
 	assert(*pgdir_walk(kern_pgdir, (void*) PGSIZE, 0) & PTE_U);
 	assert(kern_pgdir[0] & PTE_U);
-	cprintf("end chunky boi\n");
+
 
 
 	// should be able to remap with fewer permissions
