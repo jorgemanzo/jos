@@ -1,0 +1,38 @@
+Q1: Assuming that the following JOS kernel code is correct, what type should variable x have, uintptr_t or physaddr_t?
+
+uintptr_t because everything in C is virtual addressing when used.
+
+Q2:
++-------+-------------------+-------------------------------+
+|PDEntry|Virtual Address	|Points To						|
++-------+-------------------+-------------------------------+
+|1023	|f03be007			|PT for top 4MB					|
+|....	|....				|...							|
+|960	|f011a000			|Struct Paginfo-Array			|
+|960	|f0100000			|End of IO hole					|
+|960	|f00a0000			|Begining of IO hole			|
+|960	|f0000000			|KERNBASE / kernel 				|
+|959	|efff8000 ??		|CPU0's Kernel-Stack			|
+|....	|....				|...							|
+|956	|ef000000 ??		|UPAGES							|
+|....	|....				|...							|
++-------+-------------------+-------------------------------+
+ 3) The user data / stack / program are lower in memory than
+ where the kernel is placed. Since stack memory grows downward,
+ that shouldnt be an issue. We have also set permissions
+ up so that the user programs cannot read or write any
+ data of the kernel.
+
+ 4) We have at most 256MB of physical memory, and at 4GB of
+ at virtual memory. We have that much extra memory because 
+ of our page tables. Every program that we start can reference
+ the same kernel instead of needing multiple, for example.
+
+ 5) Our page tables only take up about 4MB, about 4KB for 
+ page directory and 1024 * 4KB for page tables.
+
+ 6) We transition to running EIP above KERNBASE before calling
+ i386_init() in C; this is done in the section labeled 'relocated'.
+ Is it because of the simplier / trivial page directory that we setup
+ when we did lab1? This is needed because once we're in C we
+ cannot use addresses below 0xf0000000?
