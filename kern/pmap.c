@@ -222,8 +222,10 @@ mem_init(void)
 	// we just set up the mapping anyway.
 	// Permissions: kernel RW, user NONE
 	// Your code goes here:
+    cprintf("===> Begin bmr\n");
+    boot_map_region(kern_pgdir, KERNBASE, 4294967295 - KERNBASE, 0, PTE_W | PTE_P);
+    cprintf("===> End bmr\n");
 
-    boot_map_region(kern_pgdir, KERNBASE, npages*PGSIZE, 0, PTE_W | PTE_P);
 	// Check that the initial page directory has been set up correctly.
 	check_kern_pgdir();
 
@@ -433,14 +435,10 @@ int
 validPDE(pde_t *pgdir, const void *va) 
 {
 	// Get PDE from VA in pgdir
-	pde_t* pde = &pgdir[PDX(va)];
+	pde_t pde = pgdir[PDX(va)];
 
 	// Verify that the PDE has the present bit
-	if((*pde) & PTE_P){
-		return 1;
-	} else {
-		return 0;
-	}
+	return (pde & PTE_P);
 }
 
 
@@ -497,7 +495,7 @@ pde_t
 createPDE(struct PageInfo* pp_page_table)
 {
 
-	return (page2pa(pp_page_table) | PTE_P | PTE_U | PTE_W);
+	return (page2pa(pp_page_table) | PTE_U | PTE_W | PTE_P );
 }
 
 pte_t *
@@ -531,6 +529,7 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 
 		// Sanity check
 		assert(!validPTE(pgdir, va));
+		assert(validPDE(pgdir, va));
 
 		return extractPTE(pgdir, va);
 
@@ -563,6 +562,8 @@ boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm
 		// Set the corresponding physical page address + perms
 		(*pageTableEntry) = (pa + i) | perm;
 
+		// Sanity check
+		assert(validPDE(pgdir, (void*) (va + i)));
 	}
 }
 
