@@ -222,8 +222,8 @@ mem_init(void)
 	// we just set up the mapping anyway.
 	// Permissions: kernel RW, user NONE
 	// Your code goes here:
-    // boot_map_region(kern_pgdir, KERNBASE, 0xFFFFFFFF, 0, PTE_W | PTE_P);
 
+    boot_map_region(kern_pgdir, KERNBASE, npages*PGSIZE, 0, PTE_W | PTE_P);
 	// Check that the initial page directory has been set up correctly.
 	check_kern_pgdir();
 
@@ -551,8 +551,10 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 static void
 boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
-	cprintf("bmr: va = %#x\n", va);
-	cprintf("bmr: size = %d\n", size);
+
+
+
+	// size = ROUNDUP(size/PGSIZE, PGSIZE);
 	// Fill this function in
 	for(int i = 0; i < size; i = i + PGSIZE) {
 		// Get the page table entry for this 'chunk'
