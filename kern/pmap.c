@@ -222,9 +222,7 @@ mem_init(void)
 	// we just set up the mapping anyway.
 	// Permissions: kernel RW, user NONE
 	// Your code goes here:
-    cprintf("===> Begin bmr\n");
     boot_map_region(kern_pgdir, KERNBASE, 4294967295 - KERNBASE, 0, PTE_W | PTE_P);
-    cprintf("===> End bmr\n");
 
 	// Check that the initial page directory has been set up correctly.
 	check_kern_pgdir();
@@ -528,8 +526,8 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 		(*p_pde) = createPDE(pp_page_table);
 
 		// Sanity check
-		assert(!validPTE(pgdir, va));
-		assert(validPDE(pgdir, va));
+		// assert(!validPTE(pgdir, va));
+		// assert(validPDE(pgdir, va));
 
 		return extractPTE(pgdir, va);
 
