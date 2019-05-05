@@ -269,6 +269,21 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 	return 0;
 }
 
+// Setup a Physical PageInfo struct. Returns null if allocation fails
+struct PageInfo*
+setup_env_page(int alloc_flags)
+{
+	struct PageInfo* pp= page_alloc(alloc_flags);
+
+	if(pp == NULL) {
+		return NULL;
+	}
+
+	pp->pp_ref = (pp->pp_ref) + 1;
+	return pp;
+}
+
+
 //
 // Allocate len bytes of physical memory for environment env,
 // and map it at virtual address va in the environment's address space.
@@ -286,6 +301,33 @@ region_alloc(struct Env *e, void *va, size_t len)
 	//   'va' and 'len' values that are not page-aligned.
 	//   You should round va down, and round (va + len) up.
 	//   (Watch out for corner-cases!)
+	void *new_va = ROUNDDOWN(va, PGSIZE);
+	void *va_limit = ROUNDUP(va + len, PGSIZE);
+
+	for(int i = 0; new_va + (i*PGSIZE) < va_limit; i++) {
+
+		// Setup a Physical PageInfo struct. Returns null if allocation fails
+		struct PageInfo* p = setup_env_page(0);
+
+		// Panic if any allocation attempt fails.
+		if(p == NULL) {
+			panic("Panic: region_alloc() setupPage call failed.\n");
+		}
+
+		// Allocate len bytes of physical memory for environment env,
+		// Pages should be writable by user and kernel.
+		int result = page_insert(
+			e->env_pgdir, 
+			p, 
+			new_va + (i*PGSIZE), 
+			PTE_U | PTE_W
+		);
+
+		// Panic if any allocation attempt fails.
+		if(result != 0) {
+			panic("Panic: region_alloc() page_insert call failed.\n");
+		}
+	}
 
 }
 
