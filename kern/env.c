@@ -116,7 +116,13 @@ env_init(void)
 {
 	// Set up envs array
 	// LAB 3: Your code here.
-
+	env_free_list = NULL;
+	for(int i = NENV - 1;  i >= 0; i--) {
+		envs[i].env_status	= ENV_FREE;
+		envs[i].env_id 		= 0;
+		envs[i].env_link	= env_free_list;
+		env_free_list		= &envs[i];
+	}
 	// Per-CPU part of the initialization
 	env_init_percpu();
 }
@@ -180,9 +186,22 @@ env_setup_vm(struct Env *e)
 
 	// LAB 3: Your code here.
 
+	// Now, set e->env_pgdir and initialize the page directory.
+	e->env_pgdir = page2kva(p);
+
+	//    - The VA space of all envs is identical above UTOP
+	for(int i = PDX(UTOP); i < NPDENTRIES; i++) {
+		e->env_pgdir[i] = kern_pgdir[i];	
+	}
 	// UVPT maps the env's own page table read-only.
 	// Permissions: kernel R, user R
 	e->env_pgdir[PDX(UVPT)] = PADDR(e->env_pgdir) | PTE_P | PTE_U;
+
+
+	// but env_pgdir
+	//	is an exception -- you need to increment env_pgdir's
+	//	pp_ref for env_free to work correctly.
+	p->pp_ref++;
 
 	return 0;
 }
