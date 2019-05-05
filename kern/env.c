@@ -286,6 +286,7 @@ region_alloc(struct Env *e, void *va, size_t len)
 	//   'va' and 'len' values that are not page-aligned.
 	//   You should round va down, and round (va + len) up.
 	//   (Watch out for corner-cases!)
+
 }
 
 //
@@ -447,6 +448,46 @@ env_pop_tf(struct Trapframe *tf)
 		"\tiret\n"
 		: : "g" (tf) : "memory");
 	panic("iret failed");  /* mostly to placate the compiler */
+}
+
+
+// Returns the current Env. Returns NULL if it wasnt found.
+struct Env *
+fetch_current_env(struct Env *e)
+{
+	for(int i = 0; i < NENV; i++) {
+		if(e[i].env_id == 0) {
+			return &(e[i]);
+		}
+	}
+	return NULL;
+}
+
+int
+is_curenv_present() {
+	if(curenv != NULL) {
+		return 1;
+	}
+	return 0;
+}
+
+int
+is_curenv_running() {
+	if(is_curenv_present()) {
+		if(curenv->env_status == ENV_RUNNING) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+//	   2. Set 'curenv' to the new environment,
+//	   3. Set its status to ENV_RUNNING,
+void
+set_curenv_to(struct Env *e) {
+	curenv = e;
+	curenv->env_status = ENV_RUNNING;
+	curenv->env_runs++;
 }
 
 //
