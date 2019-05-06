@@ -81,6 +81,7 @@ void t_fperr();
 void t_align();
 void t_mchk();
 void t_simderr();
+void t_syscall();
 
 void
 trap_init(void)
@@ -91,7 +92,7 @@ trap_init(void)
      *
      * HINT
      * Do something like this: SETGATE(idt[T_DIVIDE], 0, GD_KT, t_divide, 0);
-     * if your trap handler's name for divide by zero is t_device.
+     * if your trap handler's name for divide by zero is t_divide.
      * Additionally, you should declare trap handler as a function
      * to refer that in C code... (see the comment XYZ above)
      *
@@ -116,7 +117,8 @@ trap_init(void)
 	// SETGATE(idt[T_RES],	0, GD_KT, t_res,	0);
 	SETGATE(idt[T_ALIGN],	0, GD_KT, t_align,	0);
 	SETGATE(idt[T_MCHK],	0, GD_KT, t_mchk,	0);
-	SETGATE(idt[T_SIMDERR],	0, GD_KT, t_simderr,	0);
+	SETGATE(idt[T_SIMDERR],	0, GD_KT, t_simderr,0);
+	SETGATE(idt[T_SYSCALL],	0, GD_KT, t_syscall,3);
 	// Per-CPU setup
 	trap_init_percpu();
 }

@@ -121,7 +121,6 @@ envid2env(envid_t envid, struct Env **env_store, bool checkperm)
 void
 env_init(void)
 {
-	cprintf("env_init() begins\n");
 	// Set up envs array
 	// LAB 3: Your code here.
 	env_free_list = NULL;
@@ -133,7 +132,6 @@ env_init(void)
 	}
 	// Per-CPU part of the initialization
 	env_init_percpu();
-	cprintf("env_init() complete\n");
 }
 
 // Load GDT and segment descriptors.
@@ -170,7 +168,6 @@ env_init_percpu(void)
 static int
 env_setup_vm(struct Env *e)
 {
-	cprintf("env_setup_vm(): begining\n");
 	int i;
 	struct PageInfo *p = NULL;
 
@@ -214,7 +211,6 @@ env_setup_vm(struct Env *e)
 	//	is an exception -- you need to increment env_pgdir's
 	//	pp_ref for env_free to work correctly.
 	p->pp_ref++;
-	cprintf("env_setup_vm(): complete\n");
 
 	return 0;
 }
@@ -319,10 +315,8 @@ region_alloc(struct Env *e, void *va, size_t len)
 	uintptr_t new_va	= (uintptr_t)ROUNDDOWN(va, PGSIZE);
 	uintptr_t va_limit	= (uintptr_t)ROUNDUP(va + len, PGSIZE);
 
-	cprintf("region_alloc(): from %#x to %#x\n", new_va, va_limit);
 
 	for(int insertAt = new_va; insertAt < va_limit; insertAt = insertAt + PGSIZE) {
-		cprintf("region_alloc(): insert %#x to %#x\n", insertAt, insertAt + PGSIZE); 
 
 		// Setup a Physical PageInfo struct. Returns null if allocation fails
 		struct PageInfo* p = setup_env_page(0);
@@ -404,7 +398,6 @@ load_icode(struct Env *e, uint8_t *binary)
 
 	// LAB 3: Your code here.
 
-	cprintf("load_icode(): begin\n");
 
 
 	// Point to the elf header of the binary
@@ -430,7 +423,7 @@ load_icode(struct Env *e, uint8_t *binary)
 			region_alloc(e, (void*)ph->p_va, ph->p_memsz);
 			
 			memcpy((void*)ph->p_va, binary + ph->p_offset, ph->p_filesz);
-			memset((void*)ph->p_va, 0, ph->p_memsz);
+			// memset((void*)ph->p_va, 0, ph->p_memsz);
 
 		}
 		ph++;
@@ -442,16 +435,13 @@ load_icode(struct Env *e, uint8_t *binary)
 	// at virtual address USTACKTOP - PGSIZE.
 
 	// LAB 3: Your code here.
-	cprintf("load_icode(): Wanting PDE for %#x\n", (void*) USTACKTOP - PGSIZE);
 	region_alloc(e, (void*) USTACKTOP - PGSIZE, PGSIZE);
 	memset((void*) USTACKTOP - PGSIZE, 0, PGSIZE);
 
 
 
-	cprintf("load_icode(): context switch back to kern_pgdir\n");
 	e->env_tf.tf_eip = elf->e_entry;
 	lcr3(PADDR(kern_pgdir));
-	cprintf("load_icode(): complete\n");
 
 }
 
@@ -466,7 +456,6 @@ void
 env_create(uint8_t *binary, enum EnvType type)
 {
 	// LAB 3: Your code here.
-	cprintf("env_create(), setting up...\n");
 	struct Env *newenv_store;
 	int result = env_alloc(&newenv_store, (envid_t) 0);
 
@@ -476,7 +465,6 @@ env_create(uint8_t *binary, enum EnvType type)
 	load_icode(newenv_store, binary);
 
 	newenv_store->env_type = type;
-	cprintf("env_create(), finished\n");
 
 }
 
@@ -605,10 +593,7 @@ env_run(struct Env *e)
 		curenv->env_status = ENV_RUNNING;
 		curenv->env_runs++;
 	}
-	cprintf("env_run() Context switching!\n");
 	lcr3(PADDR(curenv->env_pgdir));
-	cprintf("env_run() Context switching complete!\n");
 	env_pop_tf(&curenv->env_tf);
-	cprintf("env_run() complete\n");
 }
 
