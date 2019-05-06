@@ -14,7 +14,7 @@
  * It pushes a trap number onto the stack, then jumps to _alltraps.
  * Use TRAPHANDLER for traps where the CPU automatically pushes an error code.
  *
- * You shouldn't call a TRAPHANDLER function from C, but you may
+ * You shouldnt call a TRAPHANDLER function from C, but you may
  * need to _declare_ one in C (for instance, to get a function pointer
  * during IDT setup).  You can declare the function with
  *   void NAME();
@@ -28,7 +28,7 @@
 	pushl $(num);							\
 	jmp _alltraps
 
-/* Use TRAPHANDLER_NOEC for traps where the CPU doesn't push an error code.
+/* Use TRAPHANDLER_NOEC for traps where the CPU doesnt push an error code.
  * It pushes a 0 in place of the error code, so the trap frame has the same
  * format in either case.
  */
@@ -51,12 +51,33 @@
 //          Do something like this if there is no error code for the trap
 // HINT 2 : TRAPHANDLER(t_dblflt, T_DBLFLT);
 //          Do something like this if the trap includes an error code..
-// HINT 3 : READ Intel's manual to check if the trap includes an error code
+// HINT 3 : READ Intels manual to check if the trap includes an error code
 //          or not...
 
 /*
  * Lab 3: Your code here for _alltraps
  */
+TRAPHANDLER_NOEC(t_divide,	T_DIVIDE);
+TRAPHANDLER_NOEC(t_debug,	T_DEBUG);
+TRAPHANDLER_NOEC(t_nmi,		T_NMI);
+TRAPHANDLER_NOEC(t_brkpt,	T_BRKPT);
+TRAPHANDLER_NOEC(t_oflow,	T_OFLOW);
+TRAPHANDLER_NOEC(t_bound,	T_BOUND);
+TRAPHANDLER_NOEC(t_illop,	T_ILLOP);
+TRAPHANDLER_NOEC(t_device,	T_DEVICE);
+# TRAPHANDLER_NOEC(t_coproc,	T_COPROC);
+TRAPHANDLER_NOEC(t_fperr,	T_FPERR);
+# TRAPHANDLER_NOEC(t_res,		T_RES);
+TRAPHANDLER_NOEC(t_mchk,	T_MCHK);
+TRAPHANDLER_NOEC(t_simderr,	T_SIMDERR);
+
+TRAPHANDLER(t_dblflt,	T_DBLFLT);
+TRAPHANDLER(t_tss,		T_TSS);
+TRAPHANDLER(t_segnp,	T_SEGNP);
+TRAPHANDLER(t_stack,	T_STACK);
+TRAPHANDLER(t_gpflt,	T_GPFLT);
+TRAPHANDLER(t_pgflt,	T_PGFLT);
+TRAPHANDLER(t_align,	T_ALIGN);
 
 _alltraps:
 	pushl %ds;
