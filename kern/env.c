@@ -465,7 +465,7 @@ env_create(uint8_t *binary, enum EnvType type)
 	load_icode(newenv_store, binary);
 
 	newenv_store->env_type = type;
-
+	newenv_store->env_parent_id = 0;
 }
 
 //
