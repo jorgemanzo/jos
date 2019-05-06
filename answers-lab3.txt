@@ -1,0 +1,5 @@
+1.
+Having a handler function for each exception/interrupt allows us to handle each vector differently depending on what occured. For a page fault for example, we may need to allocate more space to allow the faulting instruction. 
+
+2.
+I did not modify softinit.c in any way. When the user attempts int 14, the permission for page fault is ring 0. The user program is in ring 3, so because of this, a general protection fault occurs since the user doesnt have permission for page fault handling.
