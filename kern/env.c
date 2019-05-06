@@ -421,9 +421,9 @@ load_icode(struct Env *e, uint8_t *binary)
 
 			// Setup some space in the pgdir for this segment
 			region_alloc(e, (void*)ph->p_va, ph->p_memsz);
-			
+
+			memset((void*)ph->p_va, 0, ph->p_memsz);
 			memcpy((void*)ph->p_va, binary + ph->p_offset, ph->p_filesz);
-			// memset((void*)ph->p_va, 0, ph->p_memsz);
 
 		}
 		ph++;
