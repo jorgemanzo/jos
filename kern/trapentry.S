@@ -58,4 +58,12 @@
  * Lab 3: Your code here for _alltraps
  */
 
-
+_alltraps:
+	pushl %ds;
+	pushl %es;
+	pushal
+	mov  $GD_KD, %EDX;
+	movw  %DX, %DS;
+	movw  %DX, %ES;
+	pushl %ESP
+	call trap;
