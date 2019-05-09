@@ -778,7 +778,6 @@ is_allowable_PDE(pde_t *pgdir, const void *va, int perm)
 {
 	// Get PDE from VA in pgdir
 	pde_t pde = pgdir[PDX(va)];
-	cprintf("is_allowable_PDE: PDE has perms: %#x\n", (pde & perm));
 	if((pde & perm) == perm) {
 		return 1;
 	}
@@ -792,7 +791,6 @@ is_allowable_PTE(pde_t *pgdir, const void *va, int perm)
 
 	if(is_allowable_PDE(pgdir, va, perm)) {
 		pte_t *pte_p = extractPTE(pgdir, va);
-		cprintf("is_allowable_PTE: PTE has perms: %#x\n", (*pte_p & perm));
 		if((*pte_p & perm) == perm) {
 			return 1;
 		}
@@ -820,15 +818,12 @@ region_check(struct Env *env, const uintptr_t start_va, const uintptr_t va_limit
 {
 
 	for(uintptr_t current_va = (uintptr_t)start_va; current_va < va_limit; current_va = current_va + PGSIZE) {
-		cprintf("Checking %#x\n", current_va);
 		if(!is_under_ULIM(current_va)) {
-			cprintf("Over ULIM\n");
 			user_mem_check_addr = (uintptr_t) current_va;
 			return 0;
 		}
 
 		if(!is_allowable_PTE(env->env_pgdir, (void*) current_va, perm)) {
-			cprintf("Not enough perms\n");
 			user_mem_check_addr = (uintptr_t) current_va;
 			return 0;
 		}
@@ -858,7 +853,6 @@ region_check(struct Env *env, const uintptr_t start_va, const uintptr_t va_limit
 int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
-	cprintf("User_mem_check was fed va: %#x\n", va);
 	uintptr_t new_va	= (uintptr_t)ROUNDDOWN(va, PGSIZE);
 	uintptr_t va_limit	= (uintptr_t)ROUNDUP(va + len, PGSIZE);
 	int page_no = 0;
