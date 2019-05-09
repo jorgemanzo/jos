@@ -200,6 +200,9 @@ trap_dispatch(struct Trapframe *tf)
 	switch (tf->tf_trapno) {
 		case T_PGFLT:
 		{
+			if((tf->tf_cs&0x3) == 0) {
+				panic("Page fault in kernel mode");
+			}
 			return page_fault_handler(tf);
 		}
 		case T_BRKPT:

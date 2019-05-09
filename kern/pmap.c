@@ -773,6 +773,70 @@ tlb_invalidate(pde_t *pgdir, void *va)
 
 static uintptr_t user_mem_check_addr;
 
+int
+is_allowable_PDE(pde_t *pgdir, const void *va, int perm)
+{
+	// Get PDE from VA in pgdir
+	pde_t pde = pgdir[PDX(va)];
+
+	int check = 0x0;
+	check = check + (pde & perm);
+	if(check == perm) {
+		return 1;
+	}
+
+	return 0;
+}
+
+int
+is_allowable_PTE(pde_t *pgdir, const void *va, int perm)
+{
+
+	if(is_allowable_PDE(pgdir, va, perm)) {
+		pte_t *pte_p = extractPTE(pgdir, va);
+		int check = 0x0;
+		check = check + (*pte_p & perm);
+		if(check == perm) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+/* Returns 1 if under ULIM. Returns 0 if not */
+int
+is_under_ULIM(const uintptr_t va)
+{
+	if(va > (uintptr_t) ULIM) {
+		return 0;
+	}
+	return 1;
+}
+
+
+/*
+	returns 1 if the region access is allowable, 0 if not.
+	Expects va and len to be page aligned
+*/
+int
+region_check(struct Env *env, const uintptr_t start_va, const uintptr_t va_limit, int perm)
+{
+
+	for(uintptr_t current_va = (uintptr_t)start_va; current_va < va_limit; current_va = current_va + PGSIZE) {
+		cprintf("Checking %#x\n", current_va);
+		if(!is_under_ULIM(current_va)) {
+			cprintf("Over ULIM\n");
+			return 0;
+		}
+
+		if(!is_allowable_PTE(env->env_pgdir, (void*) current_va, perm)) {
+			cprintf("Not enough perms\n");
+			return 0;
+		}
+	}
+	return 1;
+}
+
 //
 // Check that an environment is allowed to access the range of memory
 // [va, va+len) with permissions 'perm | PTE_P'.
@@ -794,7 +858,19 @@ static uintptr_t user_mem_check_addr;
 int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
-	// LAB 3: Your code here.
+	cprintf("user_mem_check was fed an original VA of %#x\n", va);
+	cprintf("user_mem_check was fed an original len of %d bytes\n", len);
+
+	uintptr_t new_va	= (uintptr_t)ROUNDDOWN(va, PGSIZE);
+	uintptr_t va_limit	= (uintptr_t)ROUNDUP(va + len, PGSIZE);
+
+	cprintf("user_mem_check new_va %#x\n", new_va);
+	cprintf("user_mem_check va_limit1 %#x\n", va_limit);
+
+	if(!region_check(env, new_va, va_limit, perm | PTE_P)) {
+		user_mem_check_addr = (uintptr_t) va;
+		return -E_FAULT;
+	}
 
 	return 0;
 }
