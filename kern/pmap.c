@@ -778,10 +778,8 @@ is_allowable_PDE(pde_t *pgdir, const void *va, int perm)
 {
 	// Get PDE from VA in pgdir
 	pde_t pde = pgdir[PDX(va)];
-
-	int check = 0x0;
-	check = check + (pde & perm);
-	if(check == perm) {
+	cprintf("is_allowable_PDE: PDE has perms: %#x\n", (pde & perm));
+	if((pde & perm) == perm) {
 		return 1;
 	}
 
@@ -794,9 +792,8 @@ is_allowable_PTE(pde_t *pgdir, const void *va, int perm)
 
 	if(is_allowable_PDE(pgdir, va, perm)) {
 		pte_t *pte_p = extractPTE(pgdir, va);
-		int check = 0x0;
-		check = check + (*pte_p & perm);
-		if(check == perm) {
+		cprintf("is_allowable_PTE: PTE has perms: %#x\n", (*pte_p & perm));
+		if((*pte_p & perm) == perm) {
 			return 1;
 		}
 	}
@@ -826,16 +823,19 @@ region_check(struct Env *env, const uintptr_t start_va, const uintptr_t va_limit
 		cprintf("Checking %#x\n", current_va);
 		if(!is_under_ULIM(current_va)) {
 			cprintf("Over ULIM\n");
+			user_mem_check_addr = (uintptr_t) current_va;
 			return 0;
 		}
 
 		if(!is_allowable_PTE(env->env_pgdir, (void*) current_va, perm)) {
 			cprintf("Not enough perms\n");
+			user_mem_check_addr = (uintptr_t) current_va;
 			return 0;
 		}
 	}
 	return 1;
 }
+
 
 //
 // Check that an environment is allowed to access the range of memory
@@ -858,18 +858,31 @@ region_check(struct Env *env, const uintptr_t start_va, const uintptr_t va_limit
 int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
-	cprintf("user_mem_check was fed an original VA of %#x\n", va);
-	cprintf("user_mem_check was fed an original len of %d bytes\n", len);
-
+	cprintf("User_mem_check was fed va: %#x\n", va);
 	uintptr_t new_va	= (uintptr_t)ROUNDDOWN(va, PGSIZE);
 	uintptr_t va_limit	= (uintptr_t)ROUNDUP(va + len, PGSIZE);
+	int page_no = 0;
+	for(uintptr_t current_va = (uintptr_t)new_va; current_va < va_limit; current_va = current_va + PGSIZE) {
+		if(!is_under_ULIM(current_va)) {
+			if(page_no == 0) {
+				user_mem_check_addr = (uintptr_t) va;
+				return -E_FAULT;
+			} else {
+				user_mem_check_addr = (uintptr_t) current_va;
+				return -E_FAULT;
+			}
+		}
 
-	cprintf("user_mem_check new_va %#x\n", new_va);
-	cprintf("user_mem_check va_limit1 %#x\n", va_limit);
-
-	if(!region_check(env, new_va, va_limit, perm | PTE_P)) {
-		user_mem_check_addr = (uintptr_t) va;
-		return -E_FAULT;
+		if(!is_allowable_PTE(env->env_pgdir, (void*) current_va, perm)) {
+			if(page_no == 0) {
+				user_mem_check_addr = (uintptr_t) va;
+				return -E_FAULT;
+			} else {
+				user_mem_check_addr = (uintptr_t) current_va;	
+				return -E_FAULT;	
+			}
+		}
+		page_no++;
 	}
 
 	return 0;
